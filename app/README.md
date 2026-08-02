@@ -1,12 +1,5 @@
-# <YOUR_APP_NAME>
+# PerfectResume App
 
-Built with [Wasp](https://wasp.sh), based on the [Open Saas](https://opensaas.sh) template.
+This directory contains the Wasp/OpenSaaS application for PerfectResume.
 
-## Development
-
-### Running locally
-
-- Make sure you have the `.env.client` and `.env.server` files with correct dev values in the root of the project.
-- Run the database with `wasp start db` and leave it running.
-- Run `wasp start` and leave it running.
-- [OPTIONAL]: If this is the first time starting the app, or you've just made changes to your entities/prisma schema, also run `wasp db migrate-dev`.
+For local development, required environment variables, Render deployment steps, and troubleshooting, see the repository-level [`../README.md`](../README.md).
