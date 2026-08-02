@@ -1,5 +1,5 @@
-import aiReadyDark from "../client/static/assets/aiready-dark.webp";
-import aiReady from "../client/static/assets/aiready.webp";
+import getInterviewsDark from "../client/static/assets/GetInterviews.png"; // Or use a specific dark version if you have one
+import getInterviews from "../client/static/assets/GetInterviews.png";
 import { HighlightedFeature } from "./components/HighlightedFeature";
 
 export function AIReady() {
@@ -17,14 +17,14 @@ function AIReadyExample() {
   return (
     <div className="w-full">
       <img
-        src={aiReady}
-        alt="AI Ready"
+        src={getInterviews}
+        alt="Get Interviews"
         loading="lazy"
         className="dark:hidden"
       />
       <img
-        src={aiReadyDark}
-        alt="AI Ready"
+        src={getInterviewsDark}
+        alt="Get Interviews"
         loading="lazy"
         className="hidden dark:block"
       />
