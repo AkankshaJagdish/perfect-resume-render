@@ -4,8 +4,8 @@ export const brandConfig = {
   description:
     "AI-powered ATS-friendly resume optimization for software and technology jobs.",
   url: "https://perfectresume.app",
-  faviconPath: "/favicon.ico",
-  appIconPath: "/favicon.ico",
+  faviconPath: "/result-right-icon-fav.ico",
+  appIconPath: "/result-right-icon-fav.ico",
   logoAlt: "PerfectResume",
   socialPreviewImage: "/public-banner.webp",
   keywords:
