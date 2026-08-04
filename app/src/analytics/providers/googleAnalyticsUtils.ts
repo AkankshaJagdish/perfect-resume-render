@@ -13,7 +13,9 @@ const analyticsDataClient = new BetaAnalyticsDataClient({
   },
 });
 
-export async function getSources() {
+type AnalyticsSource = { source: string; visitors: number };
+
+export async function getSources(): Promise<AnalyticsSource[]> {
   const [response] = await analyticsDataClient.runReport({
     property: `properties/${env.GOOGLE_ANALYTICS_PROPERTY_ID}`,
     dateRanges: [
@@ -44,10 +46,10 @@ export async function getSources() {
       const source = row.dimensionValues?.[0]?.value;
       const visitors = row.metricValues?.[0]?.value;
       if (source && visitors) {
-        return { source, visitors };
+        return { source, visitors: parseInt(visitors) };
       }
     })
-    .filter(Boolean);
+    .filter((source): source is AnalyticsSource => Boolean(source));
 
   return activeUsersPerReferrer;
 }

@@ -1,9 +1,8 @@
 import { defineEnvValidationSchema } from "wasp/env";
 
 import * as z from "zod";
-import { googleAnalyticsEnvSchema, plausibleEnvSchema } from "./analytics/env";
+import { googleAnalyticsEnvSchema } from "./analytics/env";
 import { authEnvSchema } from "./auth/env";
-import { fileUploadEnvSchema } from "./file-upload/env";
 import { resumeEnvSchema } from "./resume/env";
 import { dodoEnvSchema } from "./payment/dodo/env";
 import { polarEnvSchema } from "./payment/polar/env";
@@ -22,9 +21,7 @@ export const serverEnvValidationSchema = defineEnvValidationSchema(
     ...stripeEnvSchema.shape,
     ...dodoEnvSchema.shape,
     ...polarEnvSchema.shape,
-    ...fileUploadEnvSchema.shape,
     ...resumeEnvSchema.shape,
-    ...plausibleEnvSchema.shape,
     ...googleAnalyticsEnvSchema.shape,
   }),
 );
