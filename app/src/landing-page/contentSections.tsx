@@ -1,4 +1,4 @@
-import daBoiAvatar from "../client/static/da-boi.webp";
+import daBoiAvatar from "../client/static/flower-bloom-color-icon.svg";
 import kivo from "../client/static/examples/kivo.webp";
 import messync from "../client/static/examples/messync.webp";
 import microinfluencerClub from "../client/static/examples/microinfluencers.webp";

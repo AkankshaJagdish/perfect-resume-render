@@ -2,12 +2,6 @@
 
 PerfectResume is an OpenSaaS/Wasp application for uploading resumes, analyzing them against a target job description, extracting ATS keywords with Gemini, spending credits, and generating a tailored LaTeX PDF resume. This repository keeps the standard OpenSaaS split between the Wasp app in `app/`, a static web client, a Node server, Prisma/PostgreSQL, and the Render blueprint in `render.yaml`.
 
-## Infrastructure Audit Summary
-
-PerfectResume does not require persistent object storage for its core product workflow. Resume files are accepted by the resume optimizer API with Multer memory storage, parsed from the in-memory buffer, optimized with Gemini, compiled to PDF, returned to the browser as Base64, and then discarded. The database stores only metadata such as generation status, timestamps, input file name, credits, and ATS score.
-
-The inherited OpenSaaS sample persistent file-upload page and storage code have been removed. No external object-storage replacement is required because uploaded resumes and generated PDFs are not persisted. Google Analytics is the only analytics provider.
-
 ## Local Development
 
 ### Prerequisites
@@ -17,7 +11,7 @@ The inherited OpenSaaS sample persistent file-upload page and storage code have 
 3. Wasp CLI `0.24.x`.
 4. PostgreSQL, either via `wasp start db` or your own local database.
 5. A TeX distribution with `pdflatex` available on `PATH` for resume PDF generation.
-6. API credentials for Google OAuth, Dodo Payments, Gemini, SMTP email, and Google Analytics if you want to exercise every integration locally.
+6. API credentials for Google OAuth, Dodo Payments, Gemini, SMTP email, AWS S3, and Plausible if you want to exercise every integration locally.
 
 ### Install and run
 
@@ -59,9 +53,13 @@ The Render blueprint and app env validation are aligned around the active Perfec
 | `PAYMENTS_STARTER_SUBSCRIPTION_PLAN_ID` | Yes | Dodo product/plan ID mapped to the PerfectResume starter subscription. |
 | `GEMINI_API_KEY` | Yes* | Gemini key for resume optimization. |
 | `GEMINI_API_KEYS` | Yes* | Optional comma-separated fallback keys. Set either this or `GEMINI_API_KEY`; use the Render dashboard if you prefer this over the single-key blueprint entry. |
-| `GOOGLE_ANALYTICS_CLIENT_EMAIL` | Yes | Google Analytics Data API service account email for admin stats. |
-| `GOOGLE_ANALYTICS_PRIVATE_KEY` | Yes | Base64-encoded service account private key for Google Analytics Data API. |
-| `GOOGLE_ANALYTICS_PROPERTY_ID` | Yes | GA4 property ID for admin stats. |
+| `AWS_S3_IAM_ACCESS_KEY` | Yes | S3 access key for file uploads. |
+| `AWS_S3_IAM_SECRET_KEY` | Yes | S3 secret key for file uploads. |
+| `AWS_S3_FILES_BUCKET` | Yes | S3 bucket for uploaded files. |
+| `AWS_S3_REGION` | Yes | S3 bucket region. |
+| `PLAUSIBLE_API_KEY` | Yes | Plausible API key for admin daily stats. |
+| `PLAUSIBLE_SITE_ID` | Yes | Plausible site ID/domain. |
+| `PLAUSIBLE_BASE_URL` | Yes | Plausible API base URL, usually `https://plausible.io/api`. |
 | `NODE_VERSION` | Yes | Render Node runtime version. Set to `24` in `render.yaml`. |
 | `WASP_TELEMETRY_CONTEXT` | No | Render deployment telemetry label. |
 
@@ -72,7 +70,7 @@ The Render blueprint and app env validation are aligned around the active Perfec
 | Variable | Required | Used for |
 | --- | --- | --- |
 | `REACT_APP_API_URL` | Yes | Public server URL embedded into the static client build. Render wires this from the server service URL. |
-| `REACT_APP_GOOGLE_ANALYTICS_ID` | Yes | Enables Google Analytics after cookie consent. |
+| `REACT_APP_GOOGLE_ANALYTICS_ID` | Optional | Enables Google Analytics after cookie consent. Leave empty if not used. |
 
 ## Render Deployment
 
@@ -98,10 +96,9 @@ npx prisma migrate deploy --schema=../db/schema.prisma
 8. Verify the deployment:
    - open the client URL,
    - sign up or sign in with Google,
-   - upload a PDF/DOCX/TXT resume through the resume optimizer,
+   - upload a PDF/DOCX/TXT resume,
    - generate a resume with Gemini,
-   - download the returned PDF,
-   - confirm no uploaded resume or generated PDF is persisted after the request,
+   - download the PDF,
    - start a Dodo checkout,
    - confirm `/payments-webhook` receives Dodo events.
 
@@ -138,18 +135,6 @@ https://<perfectresume-server>.onrender.com/payments-webhook
 4. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` on the Render server service.
 5. Redeploy and test Google sign-in from the client URL.
 
-## Google Analytics Setup
-
-1. Create or select a GA4 property.
-2. Set `REACT_APP_GOOGLE_ANALYTICS_ID` to the GA measurement ID for client-side analytics.
-3. Enable the Google Analytics Data API for the Google Cloud project used for admin stats.
-4. Create a service account with viewer access to the GA4 property.
-5. Set `GOOGLE_ANALYTICS_CLIENT_EMAIL`, base64-encoded `GOOGLE_ANALYTICS_PRIVATE_KEY`, and `GOOGLE_ANALYTICS_PROPERTY_ID` on the Render server service.
-
-## Storage Model
-
-PerfectResume uses temporary in-memory request processing for uploaded resumes. The resume optimizer parses the upload buffer, generates a tailored resume, returns the PDF to the browser, and stores only metadata in PostgreSQL. No object storage bucket is required, and there are no external object-storage deployment steps.
-
 ## Troubleshooting
 
 - **Missing Gemini key:** server startup or resume generation fails with a Gemini env error. Set `GEMINI_API_KEY` or `GEMINI_API_KEYS`.
@@ -159,4 +144,4 @@ PerfectResume uses temporary in-memory request processing for uploaded resumes. 
 - **Email verification/reset failures:** verify `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_PORT`; some hosting/network plans block outbound SMTP ports.
 - **Database connection issues:** confirm `DATABASE_URL` is wired from `perfectresume-db` and run `npx prisma migrate deploy --schema=../db/schema.prisma` from the built server directory.
 - **Client cannot reach API:** ensure `REACT_APP_API_URL` was set before the static client build and points to `perfectresume-server`.
-- **Google Analytics admin stats errors:** verify the service account has GA4 property viewer access and the server variables are correct.
+- **Analytics job errors:** verify `PLAUSIBLE_API_KEY`, `PLAUSIBLE_SITE_ID`, and `PLAUSIBLE_BASE_URL`.

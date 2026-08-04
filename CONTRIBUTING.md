@@ -21,7 +21,7 @@ rm -rf saas-app
 
 ### Email Sender
 
-PerfectResume uses Wasp's `SMTP` email sender in `app/src/server/emailSender.wasp.ts`. Keep `app/.env.server.example`, `render.yaml`, and the root README aligned with the SMTP variables (`SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_PORT`). Google Analytics is the only analytics provider, and resume uploads are processed temporarily without object storage.
+PerfectResume uses Wasp's `SMTP` email sender in `app/src/server/emailSender.wasp.ts`. Keep `app/.env.server.example`, `render.yaml`, and the root README aligned with the SMTP variables (`SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_PORT`).
 
 ## Re-add the Initial Migration
 
@@ -71,6 +71,6 @@ Check the latest [Render deployment guide](https://wasp.sh/docs/guides/deploymen
 6. Confirm `WASP_SERVER_URL`, `WASP_WEB_CLIENT_URL`, and `REACT_APP_API_URL` are wired from the Render service URLs.
 7. Run `npx prisma migrate deploy --schema=../db/schema.prisma` from `app/.wasp/out/server` on the server service.
 8. Verify the client URL loads and the server returns `200`.
-9. Do not expect login, email, payments, Google Analytics, resume upload, or resume generation flows to work during this smoke test unless real provider env vars and `pdflatex` are configured.
+9. Do not expect login, email, payments, upload, or resume generation flows to work during this smoke test unless real provider env vars and `pdflatex` are configured.
 
 If a service fails, inspect its build and deploy logs. Common causes are missing variables, stale Wasp build commands, or changes in Wasp's generated output layout.
