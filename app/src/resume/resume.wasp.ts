@@ -1,10 +1,11 @@
-import { api, page, query, route, type Spec } from "@wasp.sh/spec";
+import { api, apiNamespace, page, query, route, type Spec } from "@wasp.sh/spec";
 
 import { ResumeOptimizerPage } from "./ResumeOptimizerPage" with { type: "ref" };
 import {
   getLatestResumeGeneration,
   optimizeResumeApi,
 } from "./operations" with { type: "ref" };
+import { resumeApiMiddlewareConfigFn } from "./serverMiddleware" with { type: "ref" };
 
 export const resumeSpec: Spec = [
   route(
@@ -13,6 +14,7 @@ export const resumeSpec: Spec = [
     page(ResumeOptimizerPage, { authRequired: true }),
   ),
   query(getLatestResumeGeneration, { entities: ["ResumeGeneration"] }),
+  apiNamespace("/resume", { middlewareConfigFn: resumeApiMiddlewareConfigFn }),
   api("POST", "/resume/optimize", optimizeResumeApi, {
     entities: ["User", "ResumeGeneration"],
   }),
