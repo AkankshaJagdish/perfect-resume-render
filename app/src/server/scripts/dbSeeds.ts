@@ -37,7 +37,7 @@ function generateMockUserData(): MockUserData {
   const credits = subscriptionStatus
     ? 0
     : faker.number.int({ min: 0, max: 10 });
-  const hasUserPaidOnStripe = !!subscriptionStatus || credits > 3;
+  const hasUserPaidOnStripe = !!subscriptionStatus || credits > 1;
   return {
     email: faker.internet.email({ firstName, lastName }),
     username: faker.internet.userName({ firstName, lastName }),

@@ -14,7 +14,7 @@ let testUser: User;
  * Each user is given 1 credits for free on signup. This will allow them to call the OpenAI API 1 times.
  * After that, if they haven't paid, they will not be able to generate a schedule.
  * In this test file, we run all tests sequentially so that we use up the user's first 1 credits
- * and the 4th generation should fail. We can then test stripe payments and the ability to generate a schedule after payment.
+ * and the 2nd generation should fail. We can then test stripe payments and the ability to generate a schedule after payment.
  */
 test.describe.configure({ mode: "serial" });
 
@@ -32,7 +32,7 @@ test.afterAll(async () => {
 const task1 = "Create presentation on SaaS";
 const task2 = "Build SaaS app draft";
 
-test("User can make 3 AI schedule generations", async () => {
+test("User can make 1 AI schedule generation", async () => {
   test.slow(); // Use a longer timeout time in case OpenAI is slow to respond
 
   expect(page.url()).toContain("/demo-app");
@@ -43,7 +43,7 @@ test("User can make 3 AI schedule generations", async () => {
   await page.click('button:has-text("Add task")');
   await expect(page.getByText(task2)).toBeVisible();
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 1; i++) {
     const generateScheduleButton = page.getByTestId("generate-schedule-button");
     await expect(generateScheduleButton).toBeVisible();
 
