@@ -10,7 +10,7 @@ CREATE TABLE "User" (
     "subscriptionStatus" TEXT,
     "subscriptionPlan" TEXT,
     "datePaid" TIMESTAMP(3),
-    "credits" INTEGER NOT NULL DEFAULT 3,
+    "credits" INTEGER NOT NULL DEFAULT 1,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );

@@ -11,9 +11,9 @@ let page: Page;
 let testUser: User;
 
 /**
- * Each user is given 3 credits for free on signup. This will allow them to call the OpenAI API 3 times.
+ * Each user is given 1 credits for free on signup. This will allow them to call the OpenAI API 1 times.
  * After that, if they haven't paid, they will not be able to generate a schedule.
- * In this test file, we run all tests sequentially so that we use up the user's first 3 credits
+ * In this test file, we run all tests sequentially so that we use up the user's first 1 credits
  * and the 4th generation should fail. We can then test stripe payments and the ability to generate a schedule after payment.
  */
 test.describe.configure({ mode: "serial" });
