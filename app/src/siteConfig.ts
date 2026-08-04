@@ -94,7 +94,7 @@ export const pricingContent = {
     "Start with one free generation, then subscribe to Starter for 10 optimized technology resumes per month.",
   starter: {
     name: "Starter",
-    price: "$5.99",
+    price: "$1.49",
     interval: "/month",
     description:
       "10 optimized resumes per month for software and technology jobs",

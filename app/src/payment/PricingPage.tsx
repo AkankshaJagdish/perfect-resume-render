@@ -37,7 +37,7 @@ interface PaymentPlanCard {
 export const paymentPlanCards: Record<PaymentPlanId, PaymentPlanCard> = {
   [PaymentPlanId.Starter]: {
     name: prettyPaymentPlanName(PaymentPlanId.Starter),
-    price: "$5.99",
+    price: "$1.49",
     description: "10 optimized resumes per month for focused job applications",
     features: [
       "10 optimized resumes per month",
