@@ -21,17 +21,7 @@ rm -rf saas-app
 
 ### Email Sender
 
-Change the email sender to `Mailgun`.
-
-### Re-add Mailgun Example Env Vars
-
-Make sure `app/.env.server.example` has the Mailgun env vars:
-
-```env
-# See our guide for setting up mailgun emailing: https://wasp.sh/docs/advanced/email#mailgun
-MAILGUN_API_KEY=your-mailgun-key
-MAILGUN_DOMAIN=your-mailgun-domain
-```
+PerfectResume uses Wasp's `SMTP` email sender in `app/src/server/emailSender.wasp.ts`. Keep `app/.env.server.example`, `render.yaml`, and the root README aligned with the SMTP variables (`SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_PORT`). Google Analytics is the only analytics provider, and resume uploads are processed temporarily without object storage.
 
 ## Re-add the Initial Migration
 
@@ -77,10 +67,10 @@ Check the latest [Render deployment guide](https://wasp.sh/docs/guides/deploymen
 2. Open the [Render dashboard](https://dashboard.render.com/) and log in with the Wasp account.
 3. Click `New > Blueprint` and select the branch.
 4. Apply the Blueprint and wait until the database, server, and client services are created.
-5. Set `WASP_SERVER_URL` and `WASP_WEB_CLIENT_URL` on the server service.
-6. Set `REACT_APP_API_URL` on the client service.
-7. Save and rebuild both services.
+5. Fill all `sync: false` secrets listed in `render.yaml`.
+6. Confirm `WASP_SERVER_URL`, `WASP_WEB_CLIENT_URL`, and `REACT_APP_API_URL` are wired from the Render service URLs.
+7. Run `npx prisma migrate deploy --schema=../db/schema.prisma` from `app/.wasp/out/server` on the server service.
 8. Verify the client URL loads and the server returns `200`.
-9. Do not expect login or email flows to work during this smoke test unless real provider env vars are configured.
+9. Do not expect login, email, payments, Google Analytics, resume upload, or resume generation flows to work during this smoke test unless real provider env vars and `pdflatex` are configured.
 
 If a service fails, inspect its build and deploy logs. Common causes are missing variables, stale Wasp build commands, or changes in Wasp's generated output layout.

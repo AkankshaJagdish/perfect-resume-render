@@ -3,8 +3,7 @@ import { type CalculateDailyStatsJob } from "wasp/server/jobs";
 import {
   getDailyPageViews,
   getSources,
-} from "./providers/plausibleAnalyticsUtils";
-// import { getDailyPageViews, getSources } from './providers/googleAnalyticsUtils';
+} from "./providers/googleAnalyticsUtils";
 import { paymentProcessor } from "../payment/paymentProcessor";
 import { SubscriptionStatus } from "../payment/plans";
 
