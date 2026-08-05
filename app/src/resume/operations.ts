@@ -3,7 +3,12 @@ import multer from "multer";
 import type { ResumeGeneration, User } from "wasp/entities";
 import { env, HttpError, prisma } from "wasp/server";
 import type { OptimizeResumeApi } from "wasp/server/api";
-import type { GetLatestResumeGeneration } from "wasp/server/operations";
+import { generateResumeJob as submitGenerateResumeJob } from "wasp/server/jobs";
+import type { GenerateResumeJob } from "wasp/server/jobs";
+import type {
+  GetLatestResumeGeneration,
+  GetResumeGeneration,
+} from "wasp/server/operations";
 import * as z from "zod";
 import { optimizeResumePrompt } from "../ai/prompts/optimizeResume";
 import { ensureArgsSchemaOrThrowHttpError } from "../server/validation";
@@ -21,12 +26,13 @@ const geminiApiKeys = getGeminiApiKeys();
 export type OptimizeResumeOutput = {
   generationId: string;
   fileName: string;
-  pdfBase64: string;
+  pdfBase64?: string;
   atsScore: number;
   keywords: string[];
   strengths: string[];
   weaknesses: string[];
   missingKeywords: string[];
+  status?: string;
 };
 
 export const getLatestResumeGeneration: GetLatestResumeGeneration<
@@ -51,6 +57,37 @@ export const getLatestResumeGeneration: GetLatestResumeGeneration<
       atsScore: true,
     },
   });
+};
+
+export const getResumeGeneration: GetResumeGeneration<
+  { generationId: string },
+  OptimizeResumeOutput | null
+> = async (args, context) => {
+  if (!context.user) {
+    throw new HttpError(401);
+  }
+
+  const generation = await context.entities.ResumeGeneration.findFirst({
+    where: { id: args.generationId, userId: context.user.id },
+  });
+
+  if (!generation) {
+    return null;
+  }
+
+  const result = parseGenerationResult(generation.resultJson);
+
+  return {
+    generationId: generation.id,
+    fileName: result?.fileName ?? buildPdfFileName(generation.inputFileName),
+    pdfBase64: result?.pdfBase64,
+    atsScore: generation.atsScore ?? result?.atsScore ?? 0,
+    keywords: result?.keywords ?? [],
+    strengths: result?.strengths ?? [],
+    weaknesses: result?.weaknesses ?? [],
+    missingKeywords: result?.missingKeywords ?? [],
+    status: generation.status,
+  };
 };
 
 const upload = multer({
@@ -97,16 +134,40 @@ export const optimizeResumeApi: OptimizeResumeApi = async (
         request.body,
       );
 
-      const result = await runResumeOptimization({
-        fileName: file.originalname,
-        fileType,
-        fileBuffer: file.buffer,
-        jobDescription: fields.jobDescription,
-        user,
-        resumeGenerationDelegate: context.entities.ResumeGeneration,
+      const generation = await context.entities.ResumeGeneration.create({
+        data: {
+          status: "pending",
+          inputFileName: file.originalname,
+          user: { connect: { id: user.id } },
+        },
       });
 
-      return response.json(result);
+      try {
+        await submitGenerateResumeJob.submit({
+          generationId: generation.id,
+          userId: user.id,
+          fileName: file.originalname,
+          fileType,
+          fileBase64: file.buffer.toString("base64"),
+          jobDescription: fields.jobDescription,
+        });
+      } catch (error) {
+        await markGenerationFailed(
+          generation.id,
+          context.entities.ResumeGeneration,
+        );
+        console.error(error);
+        return response.status(202).json({
+          generationId: generation.id,
+          status: "failed",
+          message: "Resume generation was created, but queueing failed.",
+        });
+      }
+
+      return response.status(202).json({
+        generationId: generation.id,
+        status: generation.status,
+      });
     } catch (error) {
       console.error(error);
       if (error instanceof HttpError) {
@@ -124,28 +185,70 @@ export const optimizeResumeApi: OptimizeResumeApi = async (
   });
 };
 
+export type GenerateResumeJobInput = {
+  generationId: string;
+  userId: string;
+  fileName: string;
+  fileType: ResumeFileType;
+  fileBase64: string;
+  jobDescription: string;
+};
+
+export const generateResumeJob: GenerateResumeJob<
+  GenerateResumeJobInput,
+  void
+> = async (args, context) => {
+  await runResumeOptimization({
+    generationId: args.generationId,
+    fileName: args.fileName,
+    fileType: args.fileType,
+    fileBuffer: Buffer.from(args.fileBase64, "base64"),
+    jobDescription: args.jobDescription,
+    userId: args.userId,
+    resumeGenerationDelegate: context.entities.ResumeGeneration,
+  });
+};
+
 async function runResumeOptimization({
+  generationId,
   fileName,
   fileType,
   fileBuffer,
   jobDescription,
-  user,
+  userId,
   resumeGenerationDelegate,
 }: {
+  generationId: string;
   fileName: string;
   fileType: ResumeFileType;
   fileBuffer: Buffer;
   jobDescription: string;
-  user: User;
+  userId: User["id"];
   resumeGenerationDelegate: typeof prisma.resumeGeneration;
-}): Promise<OptimizeResumeOutput> {
-  const generation = await resumeGenerationDelegate.create({
-    data: {
-      status: "processing",
-      inputFileName: fileName,
-      user: { connect: { id: user.id } },
-    },
+}): Promise<void> {
+  const claim = await resumeGenerationDelegate.updateMany({
+    where: { id: generationId, userId, status: "pending" },
+    data: { status: "running" },
   });
+
+  if (claim.count === 0) {
+    const generation = await resumeGenerationDelegate.findUnique({
+      where: { id: generationId },
+      select: { status: true },
+    });
+
+    if (
+      generation?.status === "completed" ||
+      generation?.status === "running"
+    ) {
+      console.info(
+        `Resume generation ${generationId} is already ${generation.status}; skipping duplicate job.`,
+      );
+      return;
+    }
+
+    throw new Error(`Resume generation ${generationId} is not pending.`);
+  }
 
   try {
     const resumeText = await extractResumeText({ fileBuffer, fileType });
@@ -154,15 +257,8 @@ async function runResumeOptimization({
       jobDescription,
     });
     const pdf = await generateResumePdf(optimizedResult);
-
-    await markGenerationCompletedAndDecrementCredit({
-      generationId: generation.id,
-      userId: user.id,
-      atsScore: optimizedResult.ats.score,
-    });
-
-    return {
-      generationId: generation.id,
+    const result: OptimizeResumeOutput = {
+      generationId,
       fileName: buildPdfFileName(fileName),
       pdfBase64: pdf.toString("base64"),
       atsScore: optimizedResult.ats.score,
@@ -170,9 +266,17 @@ async function runResumeOptimization({
       strengths: optimizedResult.ats.strengths,
       weaknesses: optimizedResult.ats.weaknesses,
       missingKeywords: optimizedResult.ats.missing_keywords,
+      status: "completed",
     };
+
+    await markGenerationCompletedAndDecrementCredit({
+      generationId,
+      userId,
+      atsScore: optimizedResult.ats.score,
+      resultJson: JSON.stringify(result),
+    });
   } catch (error) {
-    await markGenerationFailed(generation.id, resumeGenerationDelegate);
+    await markGenerationFailed(generationId, resumeGenerationDelegate);
     throw error;
   }
 }
@@ -278,10 +382,12 @@ async function markGenerationCompletedAndDecrementCredit({
   generationId,
   userId,
   atsScore,
+  resultJson,
 }: {
   generationId: ResumeGeneration["id"];
   userId: User["id"];
   atsScore: number;
+  resultJson: string;
 }) {
   await prisma.$transaction(async (tx) => {
     const creditUpdate = await tx.user.updateMany({
@@ -295,7 +401,7 @@ async function markGenerationCompletedAndDecrementCredit({
 
     await tx.resumeGeneration.update({
       where: { id: generationId },
-      data: { status: "completed", atsScore },
+      data: { status: "completed", atsScore, resultJson },
     });
   });
 }
@@ -317,4 +423,15 @@ function getSupportedResumeFileType(fileName: string): ResumeFileType | null {
 
 function buildPdfFileName(fileName: string): string {
   return `${fileName.replace(/\.[^/.]+$/, "") || "resume"}-optimized.pdf`;
+}
+
+function parseGenerationResult(
+  resultJson: string | null,
+): OptimizeResumeOutput | null {
+  if (!resultJson) return null;
+  try {
+    return JSON.parse(resultJson) as OptimizeResumeOutput;
+  } catch {
+    return null;
+  }
 }

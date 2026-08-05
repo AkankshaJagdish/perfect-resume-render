@@ -6,6 +6,9 @@ services:
     region: oregon
     branch: main
     buildCommand: >-
+      apt-get update &&
+      apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended &&
+      rm -rf /var/lib/apt/lists/* &&
       npm install -g @wasp.sh/wasp-cli@0.24.0 &&
       export PATH="$(npm prefix -g)/bin:$PATH" &&
       cd app &&
@@ -81,6 +84,9 @@ services:
     runtime: static
     branch: main
     buildCommand: >-
+      apt-get update &&
+      apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended &&
+      rm -rf /var/lib/apt/lists/* &&
       npm install -g @wasp.sh/wasp-cli@0.24.0 &&
       export PATH="$(npm prefix -g)/bin:$PATH" &&
       cd app &&

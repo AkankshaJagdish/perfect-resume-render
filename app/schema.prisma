@@ -49,6 +49,7 @@ model ResumeGeneration {
   status                    String
   inputFileName             String
   atsScore                  Int?
+  resultJson                String?
 }
 
 model Task {

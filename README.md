@@ -34,43 +34,43 @@ The Render blueprint and app env validation are aligned around the active Perfec
 
 ### Server variables
 
-| Variable | Required | Used for |
-| --- | --- | --- |
-| `DATABASE_URL` | Yes | Prisma/PostgreSQL connection. Render wires this from `perfectresume-db`. |
-| `JWT_SECRET` | Yes | Wasp auth/session signing. Render generates this automatically. |
-| `WASP_SERVER_URL` | Yes | Public server URL used by Wasp. Render wires this from the server service URL. |
-| `WASP_WEB_CLIENT_URL` | Yes | Public client URL used by Wasp auth redirects and links. Render wires this from the client service URL. |
-| `ADMIN_EMAILS` | Optional | Comma-separated emails promoted to admin on signup. |
-| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID. |
-| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret. |
-| `SMTP_HOST` | Yes | SMTP host for Wasp email auth verification/reset emails. |
-| `SMTP_USERNAME` | Yes | SMTP username. |
-| `SMTP_PASSWORD` | Yes | SMTP password. |
-| `SMTP_PORT` | Yes | SMTP port, commonly `587`. |
-| `DODO_PAYMENTS_API_KEY` | Yes | Dodo Payments API key for checkout and customer portal calls. |
-| `DODO_PAYMENTS_WEBHOOK_KEY` | Yes | Dodo webhook signing key for `/payments-webhook`. |
-| `DODO_PAYMENTS_ENVIRONMENT` | Yes | `test_mode` locally or `live_mode` in production. |
-| `PAYMENTS_STARTER_SUBSCRIPTION_PLAN_ID` | Yes | Dodo product/plan ID mapped to the PerfectResume starter subscription. |
-| `GEMINI_API_KEY` | Yes* | Gemini key for resume optimization. |
-| `GEMINI_API_KEYS` | Yes* | Optional comma-separated fallback keys. Set either this or `GEMINI_API_KEY`; use the Render dashboard if you prefer this over the single-key blueprint entry. |
-| `AWS_S3_IAM_ACCESS_KEY` | Yes | S3 access key for file uploads. |
-| `AWS_S3_IAM_SECRET_KEY` | Yes | S3 secret key for file uploads. |
-| `AWS_S3_FILES_BUCKET` | Yes | S3 bucket for uploaded files. |
-| `AWS_S3_REGION` | Yes | S3 bucket region. |
-| `PLAUSIBLE_API_KEY` | Yes | Plausible API key for admin daily stats. |
-| `PLAUSIBLE_SITE_ID` | Yes | Plausible site ID/domain. |
-| `PLAUSIBLE_BASE_URL` | Yes | Plausible API base URL, usually `https://plausible.io/api`. |
-| `NODE_VERSION` | Yes | Render Node runtime version. Set to `24` in `render.yaml`. |
-| `WASP_TELEMETRY_CONTEXT` | No | Render deployment telemetry label. |
+| Variable                                | Required | Used for                                                                                                                                                      |
+| --------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                          | Yes      | Prisma/PostgreSQL connection. Render wires this from `perfectresume-db`.                                                                                      |
+| `JWT_SECRET`                            | Yes      | Wasp auth/session signing. Render generates this automatically.                                                                                               |
+| `WASP_SERVER_URL`                       | Yes      | Public server URL used by Wasp. Render wires this from the server service URL.                                                                                |
+| `WASP_WEB_CLIENT_URL`                   | Yes      | Public client URL used by Wasp auth redirects and links. Render wires this from the client service URL.                                                       |
+| `ADMIN_EMAILS`                          | Optional | Comma-separated emails promoted to admin on signup.                                                                                                           |
+| `GOOGLE_CLIENT_ID`                      | Yes      | Google OAuth client ID.                                                                                                                                       |
+| `GOOGLE_CLIENT_SECRET`                  | Yes      | Google OAuth client secret.                                                                                                                                   |
+| `SMTP_HOST`                             | Yes      | SMTP host for Wasp email auth verification/reset emails.                                                                                                      |
+| `SMTP_USERNAME`                         | Yes      | SMTP username.                                                                                                                                                |
+| `SMTP_PASSWORD`                         | Yes      | SMTP password.                                                                                                                                                |
+| `SMTP_PORT`                             | Yes      | SMTP port, commonly `587`.                                                                                                                                    |
+| `DODO_PAYMENTS_API_KEY`                 | Yes      | Dodo Payments API key for checkout and customer portal calls.                                                                                                 |
+| `DODO_PAYMENTS_WEBHOOK_KEY`             | Yes      | Dodo webhook signing key for `/payments-webhook`.                                                                                                             |
+| `DODO_PAYMENTS_ENVIRONMENT`             | Yes      | `test_mode` locally or `live_mode` in production.                                                                                                             |
+| `PAYMENTS_STARTER_SUBSCRIPTION_PLAN_ID` | Yes      | Dodo product/plan ID mapped to the PerfectResume starter subscription.                                                                                        |
+| `GEMINI_API_KEY`                        | Yes\*    | Gemini key for resume optimization.                                                                                                                           |
+| `GEMINI_API_KEYS`                       | Yes\*    | Optional comma-separated fallback keys. Set either this or `GEMINI_API_KEY`; use the Render dashboard if you prefer this over the single-key blueprint entry. |
+| `AWS_S3_IAM_ACCESS_KEY`                 | Yes      | S3 access key for file uploads.                                                                                                                               |
+| `AWS_S3_IAM_SECRET_KEY`                 | Yes      | S3 secret key for file uploads.                                                                                                                               |
+| `AWS_S3_FILES_BUCKET`                   | Yes      | S3 bucket for uploaded files.                                                                                                                                 |
+| `AWS_S3_REGION`                         | Yes      | S3 bucket region.                                                                                                                                             |
+| `PLAUSIBLE_API_KEY`                     | Yes      | Plausible API key for admin daily stats.                                                                                                                      |
+| `PLAUSIBLE_SITE_ID`                     | Yes      | Plausible site ID/domain.                                                                                                                                     |
+| `PLAUSIBLE_BASE_URL`                    | Yes      | Plausible API base URL, usually `https://plausible.io/api`.                                                                                                   |
+| `NODE_VERSION`                          | Yes      | Render Node runtime version. Set to `24` in `render.yaml`.                                                                                                    |
+| `WASP_TELEMETRY_CONTEXT`                | No       | Render deployment telemetry label.                                                                                                                            |
 
 \* Set at least one of `GEMINI_API_KEY` or `GEMINI_API_KEYS`.
 
 ### Client variables
 
-| Variable | Required | Used for |
-| --- | --- | --- |
-| `REACT_APP_API_URL` | Yes | Public server URL embedded into the static client build. Render wires this from the server service URL. |
-| `REACT_APP_GOOGLE_ANALYTICS_ID` | Optional | Enables Google Analytics after cookie consent. Leave empty if not used. |
+| Variable                        | Required | Used for                                                                                                |
+| ------------------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| `REACT_APP_API_URL`             | Yes      | Public server URL embedded into the static client build. Render wires this from the server service URL. |
+| `REACT_APP_GOOGLE_ANALYTICS_ID` | Optional | Enables Google Analytics after cookie consent. Leave empty if not used.                                 |
 
 ## Render Deployment
 
@@ -104,7 +104,14 @@ npx prisma migrate deploy --schema=../db/schema.prisma
 
 ### Runtime prerequisite: `pdflatex`
 
-PerfectResume uses LaTeX PDF generation. The Render server runtime must have `pdflatex` available. If the default Node environment does not include it, switch the server service to a Docker-based Render service or add an approved build/runtime step that installs a TeX distribution before starting the server.
+PerfectResume uses LaTeX PDF generation from a Wasp background job, so the Render server runtime must have `pdflatex` and the LaTeX packages used by `app/src/resume/resume.tex`. The server `buildCommand` in `render.yaml` installs the smallest compatible TeX Live set needed by the template: `texlive-latex-base`, `texlive-latex-recommended`, `texlive-latex-extra`, and `texlive-fonts-recommended`. These packages provide `pdflatex` plus template dependencies such as `fullpage`, `titlesec`, `marvosym`, `enumitem`, `hyperref`, `fancyhdr`, `babel`, `tabularx`, and `glyphtounicode`.
+
+After deployment, verify the runtime from a Render server shell with:
+
+```sh
+which pdflatex
+pdflatex --version
+```
 
 ## Dodo Payments Setup
 
@@ -138,7 +145,7 @@ https://<perfectresume-server>.onrender.com/payments-webhook
 ## Troubleshooting
 
 - **Missing Gemini key:** server startup or resume generation fails with a Gemini env error. Set `GEMINI_API_KEY` or `GEMINI_API_KEYS`.
-- **Missing `pdflatex`:** resume optimization may succeed but PDF generation fails. Install a TeX distribution or deploy the server with a Docker image that includes `pdflatex`.
+- **Missing `pdflatex`:** resume optimization will fail in the background job during PDF generation. Confirm the server build installed the TeX Live packages in `render.yaml`, then run `which pdflatex` and `pdflatex --version` from a Render server shell.
 - **Dodo webhook failures:** confirm the Dodo endpoint is `/payments-webhook`, `DODO_PAYMENTS_WEBHOOK_KEY` matches the webhook, and `DODO_PAYMENTS_ENVIRONMENT` matches test vs live mode.
 - **Google OAuth redirect mismatch:** update Google Cloud authorized origins/redirect URIs after Render URLs change.
 - **Email verification/reset failures:** verify `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_PORT`; some hosting/network plans block outbound SMTP ports.
