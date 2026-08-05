@@ -10,7 +10,7 @@ PerfectResume is an OpenSaaS/Wasp application for uploading resumes, analyzing t
 2. npm.
 3. Wasp CLI `0.24.x`.
 4. PostgreSQL, either via `wasp start db` or your own local database.
-5. A TeX distribution with `pdflatex` available on `PATH` for resume PDF generation.
+5. Tectonic available on `PATH` for resume PDF generation. Locally, run `cd app && ./scripts/install-tectonic.sh` to install the pinned binary into `app/bin`, then add `app/bin` to your `PATH`.
 6. API credentials for Google OAuth, Dodo Payments, Gemini, SMTP email, AWS S3, and Plausible if you want to exercise every integration locally.
 
 ### Install and run
@@ -102,15 +102,17 @@ npx prisma migrate deploy --schema=../db/schema.prisma
    - start a Dodo checkout,
    - confirm `/payments-webhook` receives Dodo events.
 
-### Runtime prerequisite: `pdflatex`
+### Runtime prerequisite: Tectonic
 
-PerfectResume uses LaTeX PDF generation from a Wasp background job, so the Render server runtime must have `pdflatex` and the LaTeX packages used by `app/src/resume/resume.tex`. The server `buildCommand` in `render.yaml` installs the smallest compatible TeX Live set needed by the template: `texlive-latex-base`, `texlive-latex-recommended`, `texlive-latex-extra`, and `texlive-fonts-recommended`. These packages provide `pdflatex` plus template dependencies such as `fullpage`, `titlesec`, `marvosym`, `enumitem`, `hyperref`, `fancyhdr`, `babel`, `tabularx`, and `glyphtounicode`.
+PerfectResume still renders resumes from the existing LaTeX template in `app/src/resume/resume.tex`, but Render native Node builds do not include `pdflatex`/TeX Live and do not provide a Blueprint field for declarative Debian package installation. The previous `apt-get` commands attempted to modify Render native runtime system directories during the build, which can fail on Render with a read-only filesystem error.
+
+To keep the OpenSaaS Render blueprint on native Node/static services without Docker, the server `buildCommand` now runs `app/scripts/install-tectonic.sh`. The script downloads the pinned official Tectonic `0.15.0` Linux binary into `app/bin`. The server `startCommand` adds `app/bin` to `PATH`, and PDF generation invokes `tectonic` to compile the same LaTeX resume template. Tectonic fetches the required LaTeX support files on demand and caches them in the runtime user cache.
 
 After deployment, verify the runtime from a Render server shell with:
 
 ```sh
-which pdflatex
-pdflatex --version
+which tectonic
+tectonic --version
 ```
 
 ## Dodo Payments Setup
@@ -145,7 +147,7 @@ https://<perfectresume-server>.onrender.com/payments-webhook
 ## Troubleshooting
 
 - **Missing Gemini key:** server startup or resume generation fails with a Gemini env error. Set `GEMINI_API_KEY` or `GEMINI_API_KEYS`.
-- **Missing `pdflatex`:** resume optimization will fail in the background job during PDF generation. Confirm the server build installed the TeX Live packages in `render.yaml`, then run `which pdflatex` and `pdflatex --version` from a Render server shell.
+- **Missing `tectonic`:** resume optimization will fail in the background job during PDF generation. Confirm the server build ran `app/scripts/install-tectonic.sh`, then run `which tectonic` and `tectonic --version` from a Render server shell.
 - **Dodo webhook failures:** confirm the Dodo endpoint is `/payments-webhook`, `DODO_PAYMENTS_WEBHOOK_KEY` matches the webhook, and `DODO_PAYMENTS_ENVIRONMENT` matches test vs live mode.
 - **Google OAuth redirect mismatch:** update Google Cloud authorized origins/redirect URIs after Render URLs change.
 - **Email verification/reset failures:** verify `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_PORT`; some hosting/network plans block outbound SMTP ports.
