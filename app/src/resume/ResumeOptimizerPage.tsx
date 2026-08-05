@@ -1,7 +1,11 @@
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "wasp/client/api";
-import { getLatestResumeGeneration, useQuery } from "wasp/client/operations";
+import {
+  getLatestResumeGeneration,
+  getResumeGeneration,
+  useQuery,
+} from "wasp/client/operations";
 import { Link, routes } from "wasp/client/router";
 import type { User } from "wasp/entities";
 import { Alert, AlertDescription } from "../client/components/ui/alert";
@@ -17,12 +21,14 @@ type SupportedFileType = (typeof supportedFileTypes)[number];
 type OptimizeResumeResponse = {
   generationId: string;
   fileName: string;
-  pdfBase64: string;
+  pdfBase64?: string;
   atsScore: number;
   keywords: string[];
   strengths: string[];
   weaknesses: string[];
   missingKeywords: string[];
+  status?: string;
+  message?: string;
 };
 
 export function ResumeOptimizerPage({ user }: { user: User }) {
@@ -31,7 +37,44 @@ export function ResumeOptimizerPage({ user }: { user: User }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<OptimizeResumeResponse | null>(null);
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(
+    null,
+  );
   const { data: latestGeneration } = useQuery(getLatestResumeGeneration);
+  const { data: polledGeneration, refetch: refetchGeneration } = useQuery(
+    getResumeGeneration,
+    { generationId: activeGenerationId ?? "" },
+    { enabled: !!activeGenerationId },
+  );
+
+  useEffect(() => {
+    if (!activeGenerationId || !isGenerating) return;
+
+    const intervalId = window.setInterval(() => {
+      void refetchGeneration();
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, [activeGenerationId, isGenerating, refetchGeneration]);
+
+  useEffect(() => {
+    if (!polledGeneration) return;
+
+    if (polledGeneration.status === "completed") {
+      setResult(polledGeneration);
+      setIsGenerating(false);
+      if (polledGeneration.pdfBase64) {
+        downloadPdf(polledGeneration.pdfBase64, polledGeneration.fileName);
+      }
+      setActiveGenerationId(null);
+    }
+
+    if (polledGeneration.status === "failed") {
+      setErrorMessage("Unable to optimize resume. Please try again.");
+      setIsGenerating(false);
+      setActiveGenerationId(null);
+    }
+  }, [polledGeneration]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,17 +101,21 @@ export function ResumeOptimizerPage({ user }: { user: User }) {
       const pdfResult = await api
         .post("/resume/optimize", { body: formData })
         .json<OptimizeResumeResponse>();
-      setResult(pdfResult);
-      downloadPdf(pdfResult.pdfBase64, pdfResult.fileName);
+      if (pdfResult.status === "failed") {
+        throw new Error(
+          pdfResult.message ?? "Unable to queue resume generation.",
+        );
+      }
+      setActiveGenerationId(pdfResult.generationId);
+      await refetchGeneration();
     } catch (error: unknown) {
       console.error(error);
+      setIsGenerating(false);
       setErrorMessage(
         error instanceof Error
           ? error.message
           : "Unable to optimize resume. Please try again.",
       );
-    } finally {
-      setIsGenerating(false);
     }
   }
 
@@ -169,7 +216,10 @@ export function ResumeOptimizerPage({ user }: { user: User }) {
                 type="button"
                 variant="outline"
                 className="mt-4"
-                onClick={() => downloadPdf(result.pdfBase64, result.fileName)}
+                onClick={() =>
+                  result.pdfBase64 &&
+                  downloadPdf(result.pdfBase64, result.fileName)
+                }
               >
                 Download PDF
               </Button>
