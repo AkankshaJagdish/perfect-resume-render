@@ -20,13 +20,7 @@ export async function generateResumePdf(
     const pdfPath = path.join(tempDir, "resume.pdf");
 
     await writeFile(texPath, tex, "utf8");
-    await execFileAsync("pdflatex", [
-      "-interaction=nonstopmode",
-      "-halt-on-error",
-      "-output-directory",
-      tempDir,
-      texPath,
-    ]);
+    await execFileAsync("tectonic", ["--outdir", tempDir, texPath]);
 
     return await readFile(pdfPath);
   } finally {

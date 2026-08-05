@@ -6,19 +6,17 @@ services:
     region: oregon
     branch: main
     buildCommand: >-
-      apt-get update &&
-      apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended &&
-      rm -rf /var/lib/apt/lists/* &&
       npm install -g @wasp.sh/wasp-cli@0.24.0 &&
       export PATH="$(npm prefix -g)/bin:$PATH" &&
       cd app &&
+      ./scripts/install-tectonic.sh &&
       wasp install &&
       wasp build &&
       cd .wasp/out/server &&
       npm install &&
       npx prisma generate --schema=../db/schema.prisma &&
       npm run bundle
-    startCommand: cd app/.wasp/out/server && npm run start-production
+    startCommand: export PATH="$PWD/app/bin:$PATH" && cd app/.wasp/out/server && npm run start-production
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -84,9 +82,6 @@ services:
     runtime: static
     branch: main
     buildCommand: >-
-      apt-get update &&
-      apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended &&
-      rm -rf /var/lib/apt/lists/* &&
       npm install -g @wasp.sh/wasp-cli@0.24.0 &&
       export PATH="$(npm prefix -g)/bin:$PATH" &&
       cd app &&
