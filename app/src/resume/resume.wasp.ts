@@ -6,7 +6,7 @@ import {
   optimizeResumeApi,
 } from "./operations" with { type: "ref" };
 // FIXED: Adjusted import path to point to your serverMiddleware file relative to this file
-import { resumeApiMiddlewareConfigFn } from "../serverMiddleware" with { type: "ref" }; 
+import { resumeApiMiddlewareConfigFn } from "./serverMiddleware" with { type: "ref" }; 
 
 export const resumeSpec: Spec = [
   route(
