@@ -1,12 +1,53 @@
 import { execFile } from "child_process";
-import { mkdtemp, readFile, rm, writeFile } from "fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
+import { fileURLToPath } from "url";
 import { promisify } from "util";
 import type { OptimizedResumeResult } from "./schema";
 
 const execFileAsync = promisify(execFile);
-const templatePath = path.join(process.cwd(), "src", "resume", "resume.tex");
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const templateFileName = "resume.tex";
+
+function getResumeTemplateCandidates(): string[] {
+  return [
+    path.join(moduleDir, templateFileName),
+    path.resolve(moduleDir, "..", "src", "resume", templateFileName),
+    path.resolve(
+      moduleDir,
+      "..",
+      "..",
+      "..",
+      "..",
+      "src",
+      "resume",
+      templateFileName,
+    ),
+  ];
+}
+
+async function readResumeTemplate(): Promise<string> {
+  const attemptedPaths = getResumeTemplateCandidates();
+
+  for (const templatePath of attemptedPaths) {
+    try {
+      await access(templatePath);
+      return await readFile(templatePath, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+
+  console.error(
+    `Resume template not found.\nAttempted:\n${attemptedPaths
+      .map((templatePath) => `- ${templatePath}`)
+      .join("\n")}`,
+  );
+  throw new Error("Resume template not found.");
+}
 
 type ResumePdfGenerationHooks = {
   onStageStart?: (stage: "latex_generation" | "pdf_compilation") => void;
@@ -24,7 +65,7 @@ export async function generateResumePdf(
     const pdfPath = path.join(tempDir, "resume.pdf");
 
     hooks.onStageStart?.("latex_generation");
-    const template = await readFile(templatePath, "utf8");
+    const template = await readResumeTemplate();
     const tex = populateResumeTemplate(template, result);
     await writeFile(texPath, tex, "utf8");
     await execFileAsync("tectonic", ["--outdir", tempDir, texPath]);

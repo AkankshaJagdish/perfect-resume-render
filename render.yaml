@@ -12,6 +12,7 @@ services:
       ./scripts/install-tectonic.sh &&
       wasp install &&
       wasp build &&
+      node scripts/copy-resume-template.mjs &&
       cd .wasp/out/server &&
       npm install &&
       npx prisma generate --schema=../db/schema.prisma &&
