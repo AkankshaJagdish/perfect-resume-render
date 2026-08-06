@@ -50,6 +50,11 @@ model ResumeGeneration {
   inputFileName             String
   atsScore                  Int?
   resultJson                String?
+  failureStage             String?
+  failureMessage           String?
+  failureInternalMessage   String?
+  failureStack             String?
+  completedAt              DateTime?
 }
 
 model Task {

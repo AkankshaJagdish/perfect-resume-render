@@ -8,25 +8,30 @@ import type { OptimizedResumeResult } from "./schema";
 const execFileAsync = promisify(execFile);
 const templatePath = path.join(process.cwd(), "src", "resume", "resume.tex");
 
+type ResumePdfGenerationHooks = {
+  onStageStart?: (stage: "latex_generation" | "pdf_compilation") => void;
+  onStageComplete?: (stage: "latex_generation" | "pdf_compilation") => void;
+};
+
 export async function generateResumePdf(
   result: OptimizedResumeResult,
+  hooks: ResumePdfGenerationHooks = {},
 ): Promise<Buffer> {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "resume-pdf-"));
 
   try {
-    const template = await readFile(templatePath, "utf8");
-    const tex = populateResumeTemplate(template, result);
     const texPath = path.join(tempDir, "resume.tex");
     const pdfPath = path.join(tempDir, "resume.pdf");
 
+    hooks.onStageStart?.("latex_generation");
+    const template = await readFile(templatePath, "utf8");
+    const tex = populateResumeTemplate(template, result);
     await writeFile(texPath, tex, "utf8");
-    await execFileAsync("pdflatex", [
-      "-interaction=nonstopmode",
-      "-halt-on-error",
-      "-output-directory",
-      tempDir,
-      texPath,
-    ]);
+    hooks.onStageComplete?.("latex_generation");
+
+    hooks.onStageStart?.("pdf_compilation");
+    await execFileAsync("tectonic", ["--outdir", tempDir, texPath]);
+    hooks.onStageComplete?.("pdf_compilation");
 
     return await readFile(pdfPath);
   } finally {
@@ -62,7 +67,9 @@ ${education
   .map(
     (item) => `    \\resumeSubheading
       {${latexEscape(item.school)}}{${latexEscape(item.location)}}
-      {${latexEscape(item.degree)}}{${latexEscape(joinDates(item.startDate, item.endDate))}}`,
+      {${latexEscape(item.degree)}}{${latexEscape(
+        joinDates(item.startDate, item.endDate),
+      )}}`,
   )
   .join("\n")}
   \\resumeSubHeadingListEnd`;
@@ -76,7 +83,9 @@ function buildExperienceSection(experience: Resume["experience"]): string {
 ${experience
   .map(
     (item) => `    \\resumeSubheading
-      {${latexEscape(item.title)}}{${latexEscape(joinDates(item.startDate, item.endDate))}}
+      {${latexEscape(item.title)}}{${latexEscape(
+        joinDates(item.startDate, item.endDate),
+      )}}
       {${latexEscape(item.company)}}{${latexEscape(item.location)}}
       ${buildBulletList(item.bullets)}`,
   )
@@ -92,7 +101,11 @@ function buildProjectsSection(projects: Resume["projects"]): string {
 ${projects
   .map(
     (project) => `      \\resumeProjectHeading
-          {\\textbf{${latexEscape(project.name)}}${project.technologies ? ` $|$ \\emph{${latexEscape(project.technologies)}}` : ""}}{${latexEscape(joinDates(project.startDate, project.endDate))}}
+          {\\textbf{${latexEscape(project.name)}}${
+            project.technologies
+              ? ` $|$ \\emph{${latexEscape(project.technologies)}}`
+              : ""
+          }}{${latexEscape(joinDates(project.startDate, project.endDate))}}
           ${buildBulletList(project.bullets)}`,
   )
   .join("\n")}

@@ -33,7 +33,25 @@ export type OptimizeResumeOutput = {
   weaknesses: string[];
   missingKeywords: string[];
   status?: string;
+  failureReason?: string | null;
+  userMessage?: string | null;
 };
+
+type ResumeGenerationFailureStage =
+  | "queue_submission"
+  | "job_started"
+  | "resume_parsing"
+  | "job_description_validation"
+  | "gemini_request"
+  | "json_validation"
+  | "latex_generation"
+  | "pdf_compilation"
+  | "credit_deduction"
+  | "job_completion";
+
+type ResumeGenerationLogStage = ResumeGenerationFailureStage | "job_completed";
+
+const maxStoredStackLength = 8000;
 
 export const getLatestResumeGeneration: GetLatestResumeGeneration<
   void,
@@ -76,6 +94,11 @@ export const getResumeGeneration: GetResumeGeneration<
   }
 
   const result = parseGenerationResult(generation.resultJson);
+  const failureMessage =
+    generation.status === "failed"
+      ? generation.failureMessage ??
+        getUserFriendlyFailureMessage(generation.failureStage)
+      : null;
 
   return {
     generationId: generation.id,
@@ -87,6 +110,8 @@ export const getResumeGeneration: GetResumeGeneration<
     weaknesses: result?.weaknesses ?? [],
     missingKeywords: result?.missingKeywords ?? [],
     status: generation.status,
+    failureReason: generation.failureStage,
+    userMessage: failureMessage,
   };
 };
 
@@ -152,11 +177,21 @@ export const optimizeResumeApi: OptimizeResumeApi = async (
           jobDescription: fields.jobDescription,
         });
       } catch (error) {
-        await markGenerationFailed(
-          generation.id,
-          context.entities.ResumeGeneration,
-        );
-        console.error(error);
+        await markGenerationFailed({
+          generationId: generation.id,
+          userId: user.id,
+          stage: "queue_submission",
+          error,
+          resumeGenerationDelegate: context.entities.ResumeGeneration,
+          startedAt: Date.now(),
+        });
+        logResumeGenerationError({
+          generationId: generation.id,
+          userId: user.id,
+          stage: "queue_submission",
+          error,
+          startedAt: Date.now(),
+        });
         return response.status(202).json({
           generationId: generation.id,
           status: "failed",
@@ -226,6 +261,17 @@ async function runResumeOptimization({
   userId: User["id"];
   resumeGenerationDelegate: typeof prisma.resumeGeneration;
 }): Promise<void> {
+  const startedAt = Date.now();
+  let currentStage: ResumeGenerationFailureStage = "job_started";
+
+  logResumeGenerationStage({
+    generationId,
+    userId,
+    stage: "job_started",
+    event: "started",
+    startedAt,
+  });
+
   const claim = await resumeGenerationDelegate.updateMany({
     where: { id: generationId, userId, status: "pending" },
     data: { status: "running" },
@@ -239,7 +285,8 @@ async function runResumeOptimization({
 
     if (
       generation?.status === "completed" ||
-      generation?.status === "running"
+      generation?.status === "running" ||
+      generation?.status === "failed"
     ) {
       console.info(
         `Resume generation ${generationId} is already ${generation.status}; skipping duplicate job.`,
@@ -251,12 +298,71 @@ async function runResumeOptimization({
   }
 
   try {
+    currentStage = "resume_parsing";
+    logResumeGenerationStage({
+      generationId,
+      userId,
+      stage: currentStage,
+      event: "started",
+      startedAt,
+    });
     const resumeText = await extractResumeText({ fileBuffer, fileType });
+    logResumeGenerationStage({
+      generationId,
+      userId,
+      stage: currentStage,
+      event: "completed",
+      startedAt,
+    });
+
+    currentStage = "job_description_validation";
+    logResumeGenerationStage({
+      generationId,
+      userId,
+      stage: currentStage,
+      event: "started",
+      startedAt,
+    });
+    validateJobDescriptionForGeneration(jobDescription);
+    logResumeGenerationStage({
+      generationId,
+      userId,
+      stage: currentStage,
+      event: "completed",
+      startedAt,
+    });
+
     const optimizedResult = await optimizeResumeWithGemini({
       resumeText,
       jobDescription,
+      generationId,
+      userId,
+      startedAt,
+      setCurrentStage: (stage) => {
+        currentStage = stage;
+      },
     });
-    const pdf = await generateResumePdf(optimizedResult);
+    const pdf = await generateResumePdf(optimizedResult, {
+      onStageStart: (stage) => {
+        currentStage = stage;
+        logResumeGenerationStage({
+          generationId,
+          userId,
+          stage,
+          event: "started",
+          startedAt,
+        });
+      },
+      onStageComplete: (stage) => {
+        logResumeGenerationStage({
+          generationId,
+          userId,
+          stage,
+          event: "completed",
+          startedAt,
+        });
+      },
+    });
     const result: OptimizeResumeOutput = {
       generationId,
       fileName: buildPdfFileName(fileName),
@@ -269,14 +375,65 @@ async function runResumeOptimization({
       status: "completed",
     };
 
+    currentStage = "credit_deduction";
+    logResumeGenerationStage({
+      generationId,
+      userId,
+      stage: currentStage,
+      event: "started",
+      startedAt,
+    });
     await markGenerationCompletedAndDecrementCredit({
       generationId,
       userId,
       atsScore: optimizedResult.ats.score,
       resultJson: JSON.stringify(result),
     });
+    logResumeGenerationStage({
+      generationId,
+      userId,
+      stage: currentStage,
+      event: "completed",
+      startedAt,
+    });
+    currentStage = "job_completion";
+    logResumeGenerationStage({
+      generationId,
+      userId,
+      stage: currentStage,
+      event: "started",
+      startedAt,
+    });
+    logResumeGenerationStage({
+      generationId,
+      userId,
+      stage: currentStage,
+      event: "completed",
+      startedAt,
+    });
+    logResumeGenerationStage({
+      generationId,
+      userId,
+      stage: "job_completed",
+      event: "completed",
+      startedAt,
+    });
   } catch (error) {
-    await markGenerationFailed(generationId, resumeGenerationDelegate);
+    logResumeGenerationError({
+      generationId,
+      userId,
+      stage: currentStage,
+      error,
+      startedAt,
+    });
+    await markGenerationFailed({
+      generationId,
+      userId,
+      stage: currentStage,
+      error,
+      resumeGenerationDelegate,
+      startedAt,
+    });
     throw error;
   }
 }
@@ -284,10 +441,26 @@ async function runResumeOptimization({
 async function optimizeResumeWithGemini({
   resumeText,
   jobDescription,
+  generationId,
+  userId,
+  startedAt,
+  setCurrentStage,
 }: {
   resumeText: string;
   jobDescription: string;
+  generationId: ResumeGeneration["id"];
+  userId: User["id"];
+  startedAt: number;
+  setCurrentStage: (stage: ResumeGenerationFailureStage) => void;
 }) {
+  setCurrentStage("gemini_request");
+  logResumeGenerationStage({
+    generationId,
+    userId,
+    stage: "gemini_request",
+    event: "started",
+    startedAt,
+  });
   const response = await generateGeminiContentWithFailover({
     model: geminiModel,
     contents: `${optimizeResumePrompt}\n\nResume:\n${resumeText}\n\nJob Description:\n${jobDescription}`,
@@ -296,13 +469,37 @@ async function optimizeResumeWithGemini({
       responseSchema: z.toJSONSchema(optimizedResumeSchema),
     },
   });
+  logResumeGenerationStage({
+    generationId,
+    userId,
+    stage: "gemini_request",
+    event: "completed",
+    startedAt,
+  });
 
   const text = response.text;
   if (!text) {
     throw new Error("Gemini did not return resume optimization JSON");
   }
 
-  return optimizedResumeSchema.parse(JSON.parse(text));
+  setCurrentStage("json_validation");
+  logResumeGenerationStage({
+    generationId,
+    userId,
+    stage: "json_validation",
+    event: "started",
+    startedAt,
+  });
+  const parsedResult = optimizedResumeSchema.parse(JSON.parse(text));
+  logResumeGenerationStage({
+    generationId,
+    userId,
+    stage: "json_validation",
+    event: "completed",
+    startedAt,
+  });
+
+  return parsedResult;
 }
 
 function getGeminiApiKeys(): string[] {
@@ -401,19 +598,135 @@ async function markGenerationCompletedAndDecrementCredit({
 
     await tx.resumeGeneration.update({
       where: { id: generationId },
-      data: { status: "completed", atsScore, resultJson },
+      data: {
+        status: "completed",
+        atsScore,
+        resultJson,
+        completedAt: new Date(),
+      },
     });
   });
 }
 
-async function markGenerationFailed(
-  generationId: ResumeGeneration["id"],
-  resumeGenerationDelegate: typeof prisma.resumeGeneration,
-) {
+async function markGenerationFailed({
+  generationId,
+  userId,
+  stage,
+  error,
+  resumeGenerationDelegate,
+  startedAt,
+}: {
+  generationId: ResumeGeneration["id"];
+  userId: User["id"];
+  stage: ResumeGenerationFailureStage;
+  error: unknown;
+  resumeGenerationDelegate: typeof prisma.resumeGeneration;
+  startedAt: number;
+}) {
+  const errorInfo = normalizeError(error);
   await resumeGenerationDelegate.update({
     where: { id: generationId },
-    data: { status: "failed" },
+    data: {
+      status: "failed",
+      failureStage: stage,
+      failureMessage: getUserFriendlyFailureMessage(stage),
+      failureInternalMessage: errorInfo.message,
+      failureStack: errorInfo.stack?.slice(0, maxStoredStackLength),
+      completedAt: new Date(),
+    },
   });
+  logResumeGenerationStage({
+    generationId,
+    userId,
+    stage,
+    event: "failed",
+    startedAt,
+  });
+}
+
+function validateJobDescriptionForGeneration(jobDescription: string) {
+  multipartFieldsSchema.shape.jobDescription.parse(jobDescription);
+}
+
+function logResumeGenerationStage({
+  generationId,
+  userId,
+  stage,
+  event,
+  startedAt,
+}: {
+  generationId: ResumeGeneration["id"];
+  userId: User["id"];
+  stage: ResumeGenerationLogStage;
+  event: "started" | "completed" | "failed";
+  startedAt: number;
+}) {
+  console.info(
+    JSON.stringify({
+      component: "resume-generation",
+      generationId,
+      userId,
+      stage,
+      event,
+      elapsedMs: Date.now() - startedAt,
+    }),
+  );
+}
+
+function logResumeGenerationError({
+  generationId,
+  userId,
+  stage,
+  error,
+  startedAt,
+}: {
+  generationId: ResumeGeneration["id"];
+  userId: User["id"];
+  stage: ResumeGenerationFailureStage;
+  error: unknown;
+  startedAt: number;
+}) {
+  const errorInfo = normalizeError(error);
+  console.error(
+    JSON.stringify({
+      component: "resume-generation",
+      generationId,
+      userId,
+      stage,
+      event: "error",
+      errorMessage: errorInfo.message,
+      stack: errorInfo.stack,
+      elapsedMs: Date.now() - startedAt,
+    }),
+  );
+}
+
+function normalizeError(error: unknown): { message: string; stack?: string } {
+  if (error instanceof Error) {
+    return { message: error.message, stack: error.stack };
+  }
+
+  return { message: String(error) };
+}
+
+function getUserFriendlyFailureMessage(
+  stage: string | null | undefined,
+): string {
+  switch (stage) {
+    case "resume_parsing":
+      return "Resume parsing failed. Your free credit was not consumed because generation did not complete.";
+    case "gemini_request":
+      return "Unable to contact the AI service. Your free credit was not consumed because generation did not complete.";
+    case "json_validation":
+      return "The AI service returned an unexpected response. Your free credit was not consumed because generation did not complete.";
+    case "latex_generation":
+    case "pdf_compilation":
+      return "PDF generation failed. Your free credit was not consumed because generation did not complete.";
+    case "credit_deduction":
+      return "Your resume was generated, but we could not confirm your credit balance. Please try again.";
+    default:
+      return "Something went wrong while generating your resume. Please try again. Your free credit was not consumed because generation did not complete.";
+  }
 }
 
 function getSupportedResumeFileType(fileName: string): ResumeFileType | null {
