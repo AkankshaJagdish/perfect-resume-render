@@ -115,6 +115,12 @@ which tectonic
 tectonic --version
 ```
 
+### Resume generation observability
+
+Resume optimization keeps the existing asynchronous OpenSaaS/Wasp flow: the upload endpoint creates a `ResumeGeneration`, submits the PgBoss-backed Wasp Job, and the client polls the existing Query until the generation reaches `completed` or `failed`. No separate Render worker service is required for this configuration; the Wasp server process runs the PgBoss job executor as part of the Node service declared in `render.yaml`.
+
+The background job writes structured JSON logs for each major stage without logging resume contents, uploaded files, generated resumes, or raw Gemini responses. Failed jobs are persisted with `status = failed`, a failure stage, a user-facing message, internal error details, a truncated stack trace, and `completedAt` so polling always reaches a terminal state. Credits are deducted only inside the final completion transaction after PDF generation succeeds.
+
 ## Dodo Payments Setup
 
 1. Create production Dodo products/subscriptions.

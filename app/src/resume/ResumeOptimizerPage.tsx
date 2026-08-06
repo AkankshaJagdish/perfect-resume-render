@@ -29,6 +29,8 @@ type OptimizeResumeResponse = {
   missingKeywords: string[];
   status?: string;
   message?: string;
+  failureReason?: string | null;
+  userMessage?: string | null;
 };
 
 export function ResumeOptimizerPage({ user }: { user: User }) {
@@ -70,7 +72,12 @@ export function ResumeOptimizerPage({ user }: { user: User }) {
     }
 
     if (polledGeneration.status === "failed") {
-      setErrorMessage("Unable to optimize resume. Please try again.");
+      console.error("Resume generation failed", {
+        generationId: polledGeneration.generationId,
+        failureReason: polledGeneration.failureReason,
+        userMessage: polledGeneration.userMessage,
+      });
+      setErrorMessage(getGenerationFailureMessage(polledGeneration));
       setIsGenerating(false);
       setActiveGenerationId(null);
     }
@@ -111,11 +118,7 @@ export function ResumeOptimizerPage({ user }: { user: User }) {
     } catch (error: unknown) {
       console.error(error);
       setIsGenerating(false);
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to optimize resume. Please try again.",
-      );
+      setErrorMessage(getClientErrorMessage(error));
     }
   }
 
@@ -265,4 +268,34 @@ function downloadPdf(pdfBase64: string, fileName: string) {
   link.download = fileName;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function getGenerationFailureMessage(
+  generation: OptimizeResumeResponse,
+): string {
+  if (generation.userMessage) {
+    return generation.userMessage;
+  }
+
+  switch (generation.failureReason) {
+    case "resume_parsing":
+      return "Resume parsing failed. Your free credit was not consumed because generation did not complete.";
+    case "gemini_request":
+      return "Unable to contact the AI service. Your free credit was not consumed because generation did not complete.";
+    case "json_validation":
+      return "The AI service returned an unexpected response. Your free credit was not consumed because generation did not complete.";
+    case "latex_generation":
+    case "pdf_compilation":
+      return "PDF generation failed. Your free credit was not consumed because generation did not complete.";
+    default:
+      return "Something went wrong while generating your resume. Please try again. Your free credit was not consumed because generation did not complete.";
+  }
+}
+
+function getClientErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.includes("out of credits")) {
+    return "You do not have enough credits to generate a resume.";
+  }
+
+  return "Something went wrong while generating your resume. Please try again.";
 }
