@@ -18,7 +18,7 @@ import {
   resumeFileTypes,
   type ResumeFileType,
 } from "./parser";
-import { optimizedResumeSchema } from "./schema";
+import { optimizedResumeSchema, type OptimizedResumeResult } from "./schema";
 
 const geminiModel = "gemini-2.5-flash";
 const geminiApiKeys = getGeminiApiKeys();
@@ -52,6 +52,11 @@ type ResumeGenerationFailureStage =
 type ResumeGenerationLogStage = ResumeGenerationFailureStage | "job_completed";
 
 const maxStoredStackLength = 8000;
+const maxExperienceEntries = 4;
+const maxEducationEntries = 2;
+const maxProjectEntries = 4;
+const maxExperienceBulletsPerEntry = 4;
+const maxProjectBulletsPerEntry = 3;
 
 export const getLatestResumeGeneration: GetLatestResumeGeneration<
   void,
@@ -490,7 +495,9 @@ async function optimizeResumeWithGemini({
     event: "started",
     startedAt,
   });
-  const parsedResult = optimizedResumeSchema.parse(JSON.parse(text));
+  const parsedResult = enforceResumeContentLimits(
+    optimizedResumeSchema.parse(JSON.parse(text)),
+  );
   logResumeGenerationStage({
     generationId,
     userId,
@@ -500,6 +507,30 @@ async function optimizeResumeWithGemini({
   });
 
   return parsedResult;
+}
+
+function enforceResumeContentLimits(
+  result: OptimizedResumeResult,
+): OptimizedResumeResult {
+  return {
+    ...result,
+    resume: {
+      ...result.resume,
+      experience: result.resume.experience
+        .slice(0, maxExperienceEntries)
+        .map((item) => ({
+          ...item,
+          bullets: item.bullets.slice(0, maxExperienceBulletsPerEntry),
+        })),
+      education: result.resume.education.slice(0, maxEducationEntries),
+      projects: result.resume.projects
+        .slice(0, maxProjectEntries)
+        .map((project) => ({
+          ...project,
+          bullets: project.bullets.slice(0, maxProjectBulletsPerEntry),
+        })),
+    },
+  };
 }
 
 function getGeminiApiKeys(): string[] {
