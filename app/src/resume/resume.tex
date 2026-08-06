@@ -88,11 +88,16 @@
     \end{tabular*}\vspace{-7pt}
 }
 
-\newcommand{\resumeProjectHeading}[2]{
+\newcommand{\resumeProjectHeading}[3]{
     \item
-    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
-      \small#1 & #2 \\
-    \end{tabular*}\vspace{-7pt}
+    \begin{tabular*}{0.97\textwidth}[t]{@{}p{0.70\textwidth}@{\extracolsep{\fill}}r@{}}
+      \small#1 & \small#2 \\
+    \end{tabular*}
+    \ifx\relax#3\relax
+    \else
+      \vspace{-4pt}{\small\emph{#3}\par}
+    \fi
+    \vspace{-7pt}
 }
 
 \newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}

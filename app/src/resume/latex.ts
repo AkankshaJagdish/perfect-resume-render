@@ -138,15 +138,81 @@ function buildProjectsSection(projects: Resume["projects"]): string {
 ${projects
   .map(
     (project) => `      \\resumeProjectHeading
-          {\\textbf{${latexEscape(project.name)}}${
-            project.technologies
-              ? ` $|$ \\emph{${latexEscape(project.technologies)}}`
-              : ""
-          }}{${latexEscape(joinDates(project.startDate, project.endDate))}}
+          {\\textbf{${latexEscape(formatProjectTitle(project.name))}}}
+          {${latexEscape(joinDates(project.startDate, project.endDate))}}
+          {${formatProjectTechnologies(project.technologies)}}
           ${buildBulletList(project.bullets)}`,
   )
   .join("\n")}
     \\resumeSubHeadingListEnd`;
+}
+
+function formatProjectTitle(title: string): string {
+  const normalizedTitle = title.replace(/\s+/g, " ").trim();
+  const maxProjectTitleLength = 58;
+
+  if (normalizedTitle.length <= maxProjectTitleLength) {
+    return normalizedTitle;
+  }
+
+  const leadingTitle = normalizedTitle.split(/\s[-–—:]\s/)[0]?.trim();
+  if (
+    leadingTitle &&
+    leadingTitle.length >= 10 &&
+    leadingTitle.length <= maxProjectTitleLength
+  ) {
+    return leadingTitle;
+  }
+
+  if (
+    /federated/i.test(normalizedTitle) &&
+    /anomaly detection/i.test(normalizedTitle)
+  ) {
+    return "Federated Anomaly Detection";
+  }
+
+  const withoutLayoutNoise = normalizedTitle
+    .replace(/\b(Based|System|Application|Platform|Project)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (withoutLayoutNoise.length <= maxProjectTitleLength) {
+    return withoutLayoutNoise;
+  }
+
+  return `${withoutLayoutNoise.slice(0, maxProjectTitleLength).trimEnd()}...`;
+}
+
+function formatProjectTechnologies(technologies: string): string {
+  const normalizedTechnologies = technologies
+    .split(/[,;|•]+/)
+    .map(normalizeTechnologyName)
+    .filter(Boolean);
+
+  return Array.from(new Set(normalizedTechnologies))
+    .map(latexEscape)
+    .join(" \\textbullet{} ");
+}
+
+function normalizeTechnologyName(technology: string): string {
+  const normalizedTechnology = technology.replace(/\s+/g, " ").trim();
+  const normalizedKey = normalizedTechnology.toLowerCase();
+
+  const aliases: Record<string, string> = {
+    javascript: "JavaScript",
+    typescript: "TypeScript",
+    postgresql: "PostgreSQL",
+    postgres: "PostgreSQL",
+    restful: "REST APIs",
+    "rest api": "REST APIs",
+    "rest apis": "REST APIs",
+    "restful api": "REST APIs",
+    "restful apis": "REST APIs",
+    nodejs: "Node.js",
+    "node js": "Node.js",
+  };
+
+  return aliases[normalizedKey] ?? normalizedTechnology;
 }
 
 function buildSkillsSection(skills: Resume["skills"]): string {
