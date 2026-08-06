@@ -27,11 +27,7 @@ export async function generateResumePdf(
     const template = await readFile(templatePath, "utf8");
     const tex = populateResumeTemplate(template, result);
     await writeFile(texPath, tex, "utf8");
-    hooks.onStageComplete?.("latex_generation");
-
-    hooks.onStageStart?.("pdf_compilation");
     await execFileAsync("tectonic", ["--outdir", tempDir, texPath]);
-    hooks.onStageComplete?.("pdf_compilation");
 
     return await readFile(pdfPath);
   } finally {
